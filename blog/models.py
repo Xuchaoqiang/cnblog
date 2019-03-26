@@ -11,6 +11,7 @@ class UserInfo(AbstractUser):
     nid = models.AutoField(primary_key=True)
     telephone = models.CharField(max_length=11, null=True, unique=True)
     avator = models.FileField(upload_to='avatars/', default="/avatars/default.png")
+    # Django会将文件对象下载到项目的根目录中avatar文件夹中（如果没有avatat文件夹，Django会自动创建），UserInfo中avatar字段存的是文件路径
     create_time = models.DateTimeField(verbose_name='创建时间', auto_now_add=True)
 
     blog = models.OneToOneField(to='Blog', to_field='nid', null=True, on_delete=models.CASCADE)

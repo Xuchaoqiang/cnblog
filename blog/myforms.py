@@ -4,6 +4,9 @@
 
 from django import forms
 from django.forms import widgets
+from blog.models import *
+from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
+
 
 class UserForm(forms.Form):
     """
@@ -25,3 +28,30 @@ class UserForm(forms.Form):
                              label="邮箱",
                              widget=widgets.EmailInput(attrs={"class": "form-control"})
                              )
+
+    def clean_user(self):
+        """
+        用户名局部钩子
+        :return:
+        """
+        user = self.cleaned_data.get("user")
+        user_flag = UserInfo.objects.filter(username=user).first()
+        if not user_flag:
+            return user
+        else:
+            raise ValidationError("用户名已存在！")
+
+    def clean(self):
+        """
+        全局钩子：校验两次输入密码是否一致
+        :return:
+        """
+        pwd = self.cleaned_data.get("pwd")
+        re_pwd = self.cleaned_data.get("re_pwd")
+        if pwd and re_pwd:
+            if pwd == re_pwd:
+                return self.cleaned_data
+            else:
+                raise ValidationError("两次密码不一致！")
+        else:
+            return self.cleaned_data

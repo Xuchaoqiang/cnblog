@@ -1,9 +1,10 @@
-from django.shortcuts import render, HttpResponse
+from django.shortcuts import render, HttpResponse, redirect
 from django.http import JsonResponse
 from django.contrib import auth
 from blog.utils.validCode import get_valid_code_img
 from blog.utils.geetest import GeetestLib
 from blog.myforms import *
+from django.db.models import Count
 
 # Create your views here.
 pc_geetest_id = "b46d1900d0a894591916ea94ea91bd2c"
@@ -54,6 +55,10 @@ pc_geetest_key = "36fc3fe98530eea08dfc6ce76e3d24c4"
 #     return render(request, "login2.html")
 
 def login(request):
+    # 修改密码
+    # user2 = UserInfo.objects.get(username='irving')
+    # user2.set_password("zhangshan")
+    # user2.save()
     if request.method == "POST":
         # 初始化一个给AJAX返回的数据
         ret = {"status": 0, "msg": ""}
@@ -68,6 +73,8 @@ def login(request):
         status = request.session[gt.GT_STATUS_SESSION_KEY]
         user_id = request.session["user_id"]
 
+
+
         if status:
             result = gt.success_validate(challenge, validate, seccode, user_id)
         else:
@@ -76,11 +83,12 @@ def login(request):
             # 验证码正确
             # 利用auth模块做用户名和密码的校验
             user = auth.authenticate(username=username, password=pwd)
+
             if user:
                 # 用户名密码正确
                 # 给用户做登录
                 auth.login(request, user)  # 将登录用户赋值给 request.user
-                ret["msg"] = "/index/"
+                ret["msg"] = "/"
             else:
                 # 用户名密码错误
                 ret["status"] = 1
@@ -109,7 +117,9 @@ def index(request):
     :param request:
     :return:
     """
-    return render(request, "index.html")
+    article_list = Article.objects.all()
+
+    return render(request, "index.html", {"article_list": article_list})
 
 
 # 处理极验 获取验证码的视图
@@ -131,6 +141,19 @@ def register(request):
         if form.is_valid():
             response["user"] = form.cleaned_data.get("user")
 
+            # 生产一条用户记录
+            user = form.cleaned_data.get("user")
+            pwd = form.cleaned_data.get("pwd")
+            email = form.cleaned_data.get("email")
+            avatar_obj = request.FILES.get("avatar")
+
+            extra = {}
+            if avatar_obj:
+                extra['avator'] = avatar_obj
+            UserInfo.objects.create_user(username=user, password=pwd, email=email, **extra)
+
+
+
         else:
             print(form.cleaned_data)
             print(form.errors)
@@ -138,6 +161,105 @@ def register(request):
 
         return JsonResponse(response)
 
-
     form = UserForm()
     return render(request, "register.html", {"form": form})
+
+
+def logout(request):
+    """
+    用户注册视图函数
+    :param request:
+    :return:
+    """
+    auth.logout(request)        # request.session.flush()
+
+    return redirect('/login/')
+
+
+def home_site(request, username, **kwargs):
+    """
+    用户站点视图
+    :param request:
+    :return:
+    """
+    user_obj = UserInfo.objects.filter(username=username).first()
+    # 判断用户是否存在
+    if not user_obj:
+        return render(request, "not_found.html")
+
+    # 查询当前站点对象
+    blog = user_obj.blog
+
+    # 当前用户或则当前站点对应的所有文章
+    # 基于对象查询
+    # article_list = user_obj.article_set.all()
+    # 基于 __
+    print(kwargs)
+    article_list = Article.objects.filter(user=user_obj)
+    if kwargs:
+        condition = kwargs.get("condition")
+        param = kwargs.get("param")
+
+        if condition == "category":
+            article_list = article_list.filter(category__title=param)
+        elif condition == "tag":
+            article_list = article_list.filter(tags__title=param)
+        else:
+            year, month = param.split("-")
+            article_list = article_list.filter(create_time__year=year, create_time__month=month)
+
+
+    # 每一个后的表模型.objects.values("pk").annotate(聚合函数(关联表__统计字段)).values('')
+
+    # 查询每一个分类名称以及对应的文章数
+    ret = Category.objects.values("pk").annotate(c=Count("article__title")).values_list("title", "c")
+    print(ret)
+
+    # 查询当前站点的每一个分类名称以及对应的文章数
+    cate_list = Category.objects.filter(blog=blog).values("pk").annotate(c=Count("article__title")).values_list("title", "c")
+    print(cate_list)
+
+    # 查询当前站点的每一个标签名称以及对应的文章数
+    tag_list = Tag.objects.filter(blog=blog).values("pk").annotate(c=Count("article__title")).values_list("title", "c")
+    print(tag_list)
+
+    # 查询当前站点每一个年月的名称以及对应的文章数
+    # ret2 = Article.objects.extra(select={"is_recent": "create_time > '2017-09-15'"}).values_list("title", "is_recent")
+    # print(ret2)
+
+    # 方式1
+    date_list = Article.objects.filter(user=user_obj).extra(select={"y_m_date": "date_format(create_time, '%%Y-%%m')"}).values("y_m_date").annotate(c=Count("nid")).values_list("y_m_date", "c")
+    print(date_list)
+
+    # 方式2
+    from django.db.models.functions import TruncMonth
+    ret4 = Article.objects.filter(user=user_obj).annotate(month=TruncMonth("create_time")).values("month").annotate(c=Count("nid")).values_list("month", "c")
+    print(ret4)
+
+
+    return render(request, "home_site.html", {"user_obj": user_obj,
+                                              "blog": blog,
+                                              "cate_list": cate_list,
+                                              "tag_list": tag_list,
+                                              "date_list": date_list,
+                                              "article_list": article_list})
+
+def get_query_data(username):
+    user_obj = UserInfo.objects.filter(username=username).first()
+
+    blog = user_obj.blog
+
+    cate_list = Category.objects.filter(blog=blog).values("pk").annotate(c=Count("article__title")).values_list("title", "c")
+
+    tag_list = Tag.objects.filter(blog=blog).values("pk").annotate(c=Count("article__title")).values_list("title", "c")
+
+    date_list = Article.objects.filter(user=user_obj).extra(select={"y_m_date": "date_format(create_time, '%%Y-%%m')"}).values("y_m_date").annotate(c=Count("nid")).values_list("y_m_date", "c")
+
+    return {"user_obj": user_obj, "blog": blog, "cate_list": cate_list, "tag_list": tag_list, "date_list": date_list}
+
+def article_detail(request, username, article_id):
+
+    context = get_query_data(username)
+
+    return render(request, "article_detail.html", context)
+
