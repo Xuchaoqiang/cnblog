@@ -1,10 +1,11 @@
+import json
 from django.shortcuts import render, HttpResponse, redirect
 from django.http import JsonResponse
 from django.contrib import auth
 from blog.utils.validCode import get_valid_code_img
 from blog.utils.geetest import GeetestLib
 from blog.myforms import *
-from django.db.models import Count
+from django.db.models import Count, F
 
 # Create your views here.
 pc_geetest_id = "b46d1900d0a894591916ea94ea91bd2c"
@@ -72,8 +73,6 @@ def login(request):
         seccode = request.POST.get(gt.FN_SECCODE, '')
         status = request.session[gt.GT_STATUS_SESSION_KEY]
         user_id = request.session["user_id"]
-
-
 
         if status:
             result = gt.success_validate(challenge, validate, seccode, user_id)
@@ -171,7 +170,7 @@ def logout(request):
     :param request:
     :return:
     """
-    auth.logout(request)        # request.session.flush()
+    auth.logout(request)  # request.session.flush()
 
     return redirect('/login/')
 
@@ -208,7 +207,6 @@ def home_site(request, username, **kwargs):
             year, month = param.split("-")
             article_list = article_list.filter(create_time__year=year, create_time__month=month)
 
-
     # 每一个后的表模型.objects.values("pk").annotate(聚合函数(关联表__统计字段)).values('')
 
     # 查询每一个分类名称以及对应的文章数
@@ -216,7 +214,8 @@ def home_site(request, username, **kwargs):
     print(ret)
 
     # 查询当前站点的每一个分类名称以及对应的文章数
-    cate_list = Category.objects.filter(blog=blog).values("pk").annotate(c=Count("article__title")).values_list("title", "c")
+    cate_list = Category.objects.filter(blog=blog).values("pk").annotate(c=Count("article__title")).values_list("title",
+                                                                                                                "c")
     print(cate_list)
 
     # 查询当前站点的每一个标签名称以及对应的文章数
@@ -228,14 +227,16 @@ def home_site(request, username, **kwargs):
     # print(ret2)
 
     # 方式1
-    date_list = Article.objects.filter(user=user_obj).extra(select={"y_m_date": "date_format(create_time, '%%Y-%%m')"}).values("y_m_date").annotate(c=Count("nid")).values_list("y_m_date", "c")
+    date_list = Article.objects.filter(user=user_obj).extra(
+        select={"y_m_date": "date_format(create_time, '%%Y-%%m')"}).values("y_m_date").annotate(
+        c=Count("nid")).values_list("y_m_date", "c")
     print(date_list)
 
     # 方式2
     from django.db.models.functions import TruncMonth
-    ret4 = Article.objects.filter(user=user_obj).annotate(month=TruncMonth("create_time")).values("month").annotate(c=Count("nid")).values_list("month", "c")
+    ret4 = Article.objects.filter(user=user_obj).annotate(month=TruncMonth("create_time")).values("month").annotate(
+        c=Count("nid")).values_list("month", "c")
     print(ret4)
-
 
     return render(request, "home_site.html", {"user_obj": user_obj,
                                               "blog": blog,
@@ -244,22 +245,71 @@ def home_site(request, username, **kwargs):
                                               "date_list": date_list,
                                               "article_list": article_list})
 
-def get_query_data(username):
+
+def get_classisfication_data(username):
+    """
+    获取分类数据
+    :param username:
+    :return:
+    """
     user_obj = UserInfo.objects.filter(username=username).first()
 
     blog = user_obj.blog
 
-    cate_list = Category.objects.filter(blog=blog).values("pk").annotate(c=Count("article__title")).values_list("title", "c")
+    cate_list = Category.objects.filter(blog=blog).values("pk").annotate(c=Count("article__title")).values_list("title",
+                                                                                                                "c")
 
     tag_list = Tag.objects.filter(blog=blog).values("pk").annotate(c=Count("article__title")).values_list("title", "c")
 
-    date_list = Article.objects.filter(user=user_obj).extra(select={"y_m_date": "date_format(create_time, '%%Y-%%m')"}).values("y_m_date").annotate(c=Count("nid")).values_list("y_m_date", "c")
+    date_list = Article.objects.filter(user=user_obj).extra(
+        select={"y_m_date": "date_format(create_time, '%%Y-%%m')"}).values("y_m_date").annotate(
+        c=Count("nid")).values_list("y_m_date", "c")
 
     return {"user_obj": user_obj, "blog": blog, "cate_list": cate_list, "tag_list": tag_list, "date_list": date_list}
 
+
 def article_detail(request, username, article_id):
+    """
+    文章详情页
+    :param request: 
+    :param username: 
+    :param article_id: 
+    :return: 
+    """
+    print(1, username)
+    user_obj = UserInfo.objects.filter(username=username).first()
+    # print(user)
+    blog = user_obj.blog
 
-    context = get_query_data(username)
+    article_obj = Article.objects.filter(pk=article_id).first()
 
-    return render(request, "article_detail.html", context)
+    return render(request, "article_detail.html", locals())
 
+
+def digg(request):
+    """
+    点赞操作视图
+    :param request:
+    :return:
+    """
+    print(request.POST)
+
+    article_id = request.POST.get("article_id")
+    is_up = json.loads(request.POST.get("is_up"))
+    user_id = request.user.pk
+
+    obj = ArticleUpDown.objects.filter(article_id=article_id, user_id=user_id).first()
+    response = {"state": True}
+    if not obj:
+        ard = ArticleUpDown.objects.create(user_id=user_id, article_id=article_id, is_up=is_up)
+        queryset = Article.objects.filter(pk=article_id)
+        if is_up:
+            queryset.update(up_count=F("up_count") + 1)
+        else:
+            queryset.update(down_count=F("up_count") + 1)
+    else:
+        response["state"] = False
+        response["handled"] = obj.is_up
+
+
+    return JsonResponse(response)
