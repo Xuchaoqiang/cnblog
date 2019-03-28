@@ -7,15 +7,45 @@
     <div class="cont">
         {{ article_obj.content | safe }}
     </div>
-    <div id="div_digg">
-        <div class="diggit action">
-            <span class="diggnum" id="digg_count">{{ article_obj.up_count }}</span>
+    <div class="clearfix">
+        <div id="div_digg">
+            <div class="diggit action">
+                <span class="diggnum" id="digg_count">{{ article_obj.up_count }}</span>
+            </div>
+            <div class="buryit action">
+                <span class="burynum" id="bury_count">{{ article_obj.down_count }}</span>
+            </div>
+            <div class="clear"></div>
+            <div class="diggword" id="digg_tips" style="color: red;"></div>
         </div>
-        <div class="buryit action">
-            <span class="burynum" id="bury_count">{{ article_obj.down_count }}</span>
+    </div>
+
+    <div class="comments">
+        <p>评论列表</p>
+        <ul class="list-group comment_list">
+            {% for comment in comment_list %}
+                <li class="list-group-item">
+                    <div>
+                        <a href=""># {{ forloop.counter }}楼</a> &nbsp;&nbsp;&nbsp;
+                        <span>{{ comment.create_time|date:"Y-m-d H:i" }}</span>&nbsp;&nbsp;&nbsp;
+                        <a href=""><span>{{ request.user.username }}</span></a>
+                        <a href="" class="pull-right">回复</a>
+                    </div>
+                    <div class="comment_cont">
+                        <span>{{ comment }}</span>
+                    </div>
+                </li>
+            {% endfor %}
+
+        </ul>
+
+        <p>发表评论</p>
+        <p><input type="text" id="tbCommentAuthor" class="author" disabled="disabled" size="50"
+                  value="{{ request.user.username }}"></p>
+        <textarea name="" id="comment_content" cols="60" rows="10"></textarea>
+        <div>
+            <button class="btn btn-default comment-btn">提交评论</button>
         </div>
-        <div class="clear"></div>
-        <div class="diggword" id="digg_tips" style="color: red;"></div>
     </div>
 
 
@@ -39,8 +69,8 @@
                         $obj.text(val + 1)
                     }
                     else {
-                        var msg = data.handled?"你已经推荐过了！":"你已经踩过!";
-                                                    $("#digg_tips").html(msg);
+                        var msg = data.handled ? "你已经推荐过了！" : "你已经踩过!";
+                        $("#digg_tips").html(msg);
 
                         setTimeout(function () {
                             $("#digg_tips").html("")
@@ -50,6 +80,42 @@
             })
 
 
+        });
+
+        $(".comment-btn").click(function () {
+            var content = $("#comment_content").val();
+            var pid = "";
+
+            $.ajax({
+                url: "/comment/",
+                type: "post",
+                data: {
+                    "csrfmiddlewaretoken": $("[name='csrfmiddlewaretoken']").val(),
+                    "article_id": "{{ article_id }}",
+                    "content": content,
+                    "pid": pid
+
+                },
+                success: function (data) {
+                    console.log(data);
+                    $("#comment_content").val("");
+                    var create_time = data.create_time;
+                    var username = data.username;
+                    var content = data.content;
+                    s = ` <li class="list-group-item">
+                    <div>
+                        <span>${create_time}</span>&nbsp;&nbsp;&nbsp;
+                        <a href="">${username}</span></a>
+                    </div>
+                    <div class="comment_cont">
+                        <span>${content}</span>
+                    </div>
+                </li>`;
+                    $("ul.comment_list ").append(s)
+
+                }
+
+            })
         })
 
     </script>

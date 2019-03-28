@@ -41,3 +41,24 @@
     font-size: 12px;
     color: gray;
 }
+
+input.author {
+    background-image: url(/static/blog/img/icon_form.gif);
+    background-repeat: no-repeat;
+    border: 1px solid #ccc;
+    padding: 4px 4px 4px 30px;
+    width: 300px;
+    font-size: 13px;
+}
+
+div.comments textarea {
+    width: 450px;
+    height: 300px;
+    font-size: 13px;
+    border: 1px solid #ccc;
+}
+
+
+.comment_cont{
+    margin-top: 10px;
+}

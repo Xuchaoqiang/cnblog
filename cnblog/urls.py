@@ -42,6 +42,9 @@ urlpatterns = [
     re_path(r"^(?P<username>\w+)/articles/(?P<article_id>\d+)$", views.article_detail),
 
     # 点赞
-    path("digg/", views.digg)
+    path("digg/", views.digg),
+
+    # 评论
+    path("comment/", views.comment)
 
 ]

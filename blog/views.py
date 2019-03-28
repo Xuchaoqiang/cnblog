@@ -1,4 +1,5 @@
 import json
+import time
 from django.shortcuts import render, HttpResponse, redirect
 from django.http import JsonResponse
 from django.contrib import auth
@@ -283,6 +284,9 @@ def article_detail(request, username, article_id):
 
     article_obj = Article.objects.filter(pk=article_id).first()
 
+    comment_list = Comment.objects.filter(article_id=article_id).all()
+    print(comment_list)
+
     return render(request, "article_detail.html", locals())
 
 
@@ -311,5 +315,27 @@ def digg(request):
         response["state"] = False
         response["handled"] = obj.is_up
 
+
+    return JsonResponse(response)
+
+
+def comment(request):
+    """
+    评论视图
+    :param request:
+    :return:
+    """
+    print(request.POST)
+    user_id = request.user.pk
+    article_id = request.POST.get("article_id")
+    content = request.POST.get("content")
+    pid = request.POST.get("pid")
+
+    comment_obj = Comment.objects.create(user_id=user_id, article_id=article_id, content=content, parent_comment_id=pid)
+
+    response = {}
+    response["create_time"] = comment_obj.create_time.strftime("%Y-%m-%d %X")
+    response["content"] = comment_obj.content
+    response["username"] = request.user.username
 
     return JsonResponse(response)
