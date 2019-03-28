@@ -338,4 +338,8 @@ def comment(request):
     response["content"] = comment_obj.content
     response["username"] = request.user.username
 
+    if pid:
+        response["parent_user"] = comment_obj.parent_comment.user.username
+        response["parent_content"] = comment_obj.parent_comment.content
+
     return JsonResponse(response)
