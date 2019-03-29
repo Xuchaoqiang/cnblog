@@ -7,6 +7,7 @@ from blog.utils.validCode import get_valid_code_img
 from blog.utils.geetest import GeetestLib
 from blog.myforms import *
 from django.db.models import Count, F
+from django.db import transaction
 
 # Create your views here.
 pc_geetest_id = "b46d1900d0a894591916ea94ea91bd2c"
@@ -331,7 +332,10 @@ def comment(request):
     content = request.POST.get("content")
     pid = request.POST.get("pid")
 
-    comment_obj = Comment.objects.create(user_id=user_id, article_id=article_id, content=content, parent_comment_id=pid)
+    # 事务
+    with transaction.atomic():
+        comment_obj = Comment.objects.create(user_id=user_id, article_id=article_id, content=content, parent_comment_id=pid)
+        Article.objects.filter(pk=article_id).update(comment_count=F("comment_count")+1)
 
     response = {}
     response["create_time"] = comment_obj.create_time.strftime("%Y-%m-%d %X")
@@ -343,3 +347,16 @@ def comment(request):
         response["parent_content"] = comment_obj.parent_comment.content
 
     return JsonResponse(response)
+
+
+def get_comment_tree(request):
+    """
+    评论数视图函数
+    :param request:
+    :return:
+    """
+    article_id = request.GET.get("article_id")
+    ret = Comment.objects.filter(article_id=article_id).order_by("pk").values("pk", "content", "parent_comment_id")      # queryset{...}
+
+    ret = list(ret)
+    return JsonResponse(ret, safe=False )

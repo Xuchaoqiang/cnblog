@@ -21,6 +21,12 @@
     </div>
 
     <div class="comments">
+        <p class="tree_btn">评论树</p>
+        <div class="comment_tree">
+
+
+        </div>
+
         <p>评论列表</p>
         <ul class="list-group comment_list">
             {% for comment in comment_list %}
@@ -148,7 +154,33 @@
             console.log($(this).attr("comment_id"));
             pid = $(this).attr("comment_id");
 
+        });
+
+        $(function () {
+            $.ajax({
+                url: "/get_comment_tree/",
+                type: "get",
+                data: {
+                    "article_id": {{ article_obj.pk }}
+                },
+                success: function (data) {
+                    console.log(data)
+                    $.each(data, function (index, comment_object) {
+                        var pk = comment_object.pk;
+                        var content = comment_object.content;
+                        var parent_comment_id = comment_object.parent_comment_id;
+                        var s = `<div class="comment_item" comment_id="${pk}"><span>${content}</span></div>`;
+                        if (!parent_comment_id) {
+                            $(".comment_tree").append(s)
+                        } else {
+                            console.log($("[comment_id=" + parent_comment_id + "]"))
+                            $("[comment_id=" + parent_comment_id + "]").append(s);
+                        }
+                    })
+                }
+            })
         })
+
 
     </script>
 

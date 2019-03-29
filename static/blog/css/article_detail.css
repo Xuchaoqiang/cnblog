@@ -62,3 +62,7 @@ div.comments textarea {
 .comment_cont{
     margin-top: 10px;
 }
+
+.comment_item{
+    margin-left: 20px;
+}

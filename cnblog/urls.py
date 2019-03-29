@@ -45,6 +45,7 @@ urlpatterns = [
     path("digg/", views.digg),
 
     # 评论
-    path("comment/", views.comment)
+    path("comment/", views.comment),
+    path("get_comment_tree/", views.get_comment_tree)
 
 ]
